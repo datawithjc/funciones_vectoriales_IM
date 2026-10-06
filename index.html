@@ -1,0 +1,1003 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Plotter de Funciones Vectoriales</title>
+<style>
+/* Layout: consola de puente — lienzo de trazado a la izquierda, instrumentos a la derecha; una columna en pantalla angosta. */
+:root{
+  --bg:#E9EDF2; --panel:#FFFFFF; --panel-2:#F3F6FA; --ink:#10243E;
+  --ink-soft:#4A5B70; --ink-faint:#8A99AC; --line:#CBD6E2;
+  --accent:#9A7A2E; --on-accent:#FFF8E8; --on-btn:#FFFFFF;
+  --grid:#C3D0DE; --curve-done:#B08D3A; --curve-todo:#AFBECE;
+  --v-pos:#2E6BA8; --v-vel:#A8201A; --v-acc:#1F6B4C; --v-tan:#6B3FA0;
+  --osc:#C98A2E; --body2:#1F6B4C; --plane:#2E6BA8;
+  --ok:#1F6B4C; --ok-bg:#E6F2EC; --bad:#9B1923; --bad-bg:#FBEAEA;
+  --shadow:0 1px 2px rgba(16,36,62,.08),0 8px 24px rgba(16,36,62,.07);
+  --font-d:"Barlow Condensed",ui-sans-serif,system-ui,sans-serif;
+  --font-b:"Barlow","Helvetica Neue",system-ui,sans-serif;
+  --font-m:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#071320; --panel:#0E2135; --panel-2:#132B43; --ink:#E6EEF7;
+    --ink-soft:#9FB3C8; --ink-faint:#64798F; --line:#1F3B57;
+    --accent:#D8B45C; --on-accent:#0B1726; --on-btn:#09192B;
+    --grid:#1B3350; --curve-done:#E0BA63; --curve-todo:#2E4A68;
+    --v-pos:#5C9FDC; --v-vel:#E8614F; --v-acc:#44C08A; --v-tan:#B08BE0;
+    --osc:#E0A94E; --body2:#44C08A; --plane:#5C9FDC;
+    --ok:#44C08A; --ok-bg:#13301F; --bad:#E8614F; --bad-bg:#331316;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#071320; --panel:#0E2135; --panel-2:#132B43; --ink:#E6EEF7;
+  --ink-soft:#9FB3C8; --ink-faint:#64798F; --line:#1F3B57;
+  --accent:#D8B45C; --on-accent:#0B1726; --on-btn:#09192B;
+  --grid:#1B3350; --curve-done:#E0BA63; --curve-todo:#2E4A68;
+  --v-pos:#5C9FDC; --v-vel:#E8614F; --v-acc:#44C08A; --v-tan:#B08BE0;
+  --osc:#E0A94E; --body2:#44C08A; --plane:#5C9FDC;
+  --ok:#44C08A; --ok-bg:#13301F; --bad:#E8614F; --bad-bg:#331316;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:1280px;margin:0 auto;padding-inline:16px;padding-block:22px 36px}
+
+header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:16px}
+.eyebrow{font-family:var(--font-d);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 2px}
+h1{font-family:var(--font-d);font-weight:600;font-size:clamp(28px,5vw,42px);margin:0;line-height:1.05;text-wrap:balance}
+.sub{color:var(--ink-soft);margin:6px 0 0;max-width:64ch;font-size:14.5px}
+
+/* pestañas de categoría */
+.tabs{display:flex;gap:4px;margin:16px 0 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{
+  font-family:var(--font-d);font-size:16px;letter-spacing:.07em;text-transform:uppercase;
+  padding:8px 15px;cursor:pointer;background:none;border:0;border-bottom:3px solid transparent;
+  color:var(--ink-faint);margin-bottom:-1px;transition:.14s;
+}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.chips button{
+  font-family:var(--font-b);font-size:12.5px;padding:5px 11px;border-radius:2px;cursor:pointer;
+  background:var(--panel);color:var(--ink-soft);border:1px solid var(--line);transition:.14s;
+}
+.chips button:hover{border-color:var(--accent);color:var(--ink)}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.chips .tag{font-family:var(--font-m);font-size:11px;opacity:.75;margin-right:5px}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:880px){.grid{grid-template-columns:1fr}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:3px;box-shadow:var(--shadow);min-width:0}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:9px 13px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.card-h h2{font-family:var(--font-d);font-size:16px;letter-spacing:.09em;text-transform:uppercase;margin:0;font-weight:600}
+.card-h .hint{font-size:11.5px;color:var(--ink-faint);font-family:var(--font-m)}
+
+.stage{position:relative;background:var(--panel-2);touch-action:none}
+canvas{display:block;width:100%;height:auto;cursor:grab}
+canvas:active{cursor:grabbing}
+.flag{
+  position:absolute;left:12px;top:12px;font-family:var(--font-d);font-size:14px;letter-spacing:.08em;
+  text-transform:uppercase;padding:4px 10px;border-radius:2px;background:var(--bad-bg);
+  color:var(--bad);border:1px solid var(--bad);font-weight:600;
+}
+.eqn{padding:9px 13px;border-top:1px solid var(--line);font-family:var(--font-m);font-size:13px;overflow-x:auto;white-space:nowrap}
+.eqn b{color:var(--accent);font-weight:600}
+.eqn .l2{color:var(--body2)}
+
+.transport{display:flex;gap:8px;align-items:center;padding:11px 13px;flex-wrap:wrap}
+.btn{font-family:var(--font-d);font-size:15px;letter-spacing:.06em;text-transform:uppercase;padding:7px 15px;border-radius:2px;cursor:pointer;font-weight:600;background:var(--v-pos);color:var(--on-btn);border:1px solid var(--v-pos);transition:.14s}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--ink-soft);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--accent);color:var(--ink)}
+.btn.gold{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.tslide{flex:1 1 170px;min-width:110px;accent-color:var(--accent)}
+.tread{font-family:var(--font-m);font-size:13px;color:var(--ink-soft);white-space:nowrap}
+.speed{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-faint)}
+.speed input{width:70px;accent-color:var(--accent)}
+
+.rows{padding:4px 0}
+.row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:baseline;padding:7px 13px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .k{font-family:var(--font-b);font-size:13.5px;font-weight:500;color:var(--ink-soft);white-space:nowrap}
+.row .v{font-family:var(--font-m);font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;min-width:0;overflow-x:auto;white-space:nowrap}
+.row.sep{background:var(--panel-2)}
+.sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.hi{font-weight:600;color:var(--accent)}
+.alertv{color:var(--bad);font-weight:600}
+
+.layers{display:flex;flex-wrap:wrap;gap:6px;padding:11px 13px}
+.layers label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:12.5px;padding:4px 9px;border:1px solid var(--line);border-radius:2px;background:var(--panel-2);user-select:none}
+.layers input{accent-color:var(--accent);margin:0}
+
+.note{border-left:3px solid var(--v-acc);background:var(--panel-2);padding:11px 13px;margin:0;font-size:13.5px;color:var(--ink-soft)}
+.note strong{color:var(--ink);font-weight:600}
+.note .q{display:block;margin-top:7px;color:var(--v-acc);font-weight:600}
+
+/* taller */
+.quiz{padding:12px 13px;display:grid;gap:11px}
+.qitem{border:1px solid var(--line);border-radius:2px;padding:10px 11px;background:var(--panel-2)}
+.qitem p{margin:0 0 8px;font-size:13.5px}
+.qrow{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.qrow input{
+  font-family:var(--font-m);font-size:13.5px;padding:6px 9px;border:1px solid var(--line);
+  border-radius:2px;background:var(--panel);color:var(--ink);width:120px;
+}
+.qrow input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.qrow .u{font-family:var(--font-m);font-size:12.5px;color:var(--ink-faint)}
+.qrow button{font-family:var(--font-b);font-size:13px;font-weight:600;padding:6px 13px;border-radius:2px;cursor:pointer;background:var(--v-pos);color:var(--on-btn);border:1px solid var(--v-pos)}
+.fb{margin-top:8px;padding:8px 10px;border-radius:2px;font-size:13px;display:none}
+.fb.show{display:block}
+.fb.good{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok)}
+.fb.bad{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad)}
+.score{font-family:var(--font-m);font-size:12.5px;color:var(--ink-faint)}
+
+/* simulador libre */
+.lab{padding:12px 13px;display:grid;gap:10px}
+.fgrid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px 9px;align-items:center}
+.fgrid label{font-family:var(--font-m);font-size:13px;color:var(--ink-soft);white-space:nowrap}
+.fgrid input{font-family:var(--font-m);font-size:13.5px;padding:7px 9px;border:1px solid var(--line);border-radius:2px;background:var(--panel-2);color:var(--ink);min-width:0;width:100%}
+.fgrid input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.trow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.err{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad);border-radius:2px;padding:8px 10px;font-size:13px;font-family:var(--font-m);display:none}
+.err.show{display:block}
+.help{font-size:12.5px;color:var(--ink-faint);line-height:1.55}
+.help code{font-family:var(--font-m);font-size:12px;background:var(--panel-2);padding:1px 5px;border-radius:2px;border:1px solid var(--line)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{font-size:12px;padding:4px 9px;border-radius:2px;cursor:pointer;background:var(--panel-2);color:var(--ink-soft);border:1px solid var(--line)}
+.presets button:hover{border-color:var(--accent);color:var(--ink)}
+
+footer{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-faint);display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Escuela Naval de Cadetes «Almirante Padilla» · Cálculo III</p>
+  <h1>Plotter de Funciones Vectoriales</h1>
+  <p class="sub">Las 15 aplicaciones y 5 ejemplos del Volumen III, trazados en tiempo real, más un simulador libre para sus propias funciones. Arrastre el lienzo para girar la vista.</p>
+</header>
+
+<div class="tabs" role="tablist" id="tabs"></div>
+<div class="chips" id="chips" role="group" aria-label="Escenario"></div>
+
+<div class="grid">
+  <section class="card">
+    <div class="card-h">
+      <h2 id="scTitle">—</h2>
+      <span class="hint">arrastre para girar · doble clic reinicia la vista</span>
+    </div>
+    <div class="stage"><canvas id="cv" width="900" height="620"></canvas><span class="flag" id="flag" hidden>Fuera del dominio</span></div>
+    <div class="eqn" id="eqn"></div>
+    <div class="transport">
+      <button class="btn" id="play">Reproducir</button>
+      <button class="btn ghost" id="reset">Reiniciar</button>
+      <input class="tslide" id="tslide" type="range" min="0" max="1000" value="0" aria-label="Parámetro t">
+      <span class="tread" id="tread">t = 0,00</span>
+      <span class="speed"><label for="spd">vel.</label><input id="spd" type="range" min="1" max="30" value="10" aria-label="Velocidad"></span>
+    </div>
+  </section>
+
+  <div style="display:grid;gap:16px;min-width:0">
+    <section class="card">
+      <div class="card-h"><h2>Lectura en vivo</h2><span class="hint" id="unitTag"></span></div>
+      <div class="rows" id="rows"></div>
+    </section>
+
+    <section class="card" id="labCard" hidden>
+      <div class="card-h"><h2>Simulador libre</h2><span class="hint">escriba sus funciones</span></div>
+      <div class="lab">
+        <div class="fgrid">
+          <label for="fx">x(t) =</label><input id="fx" value="3cos(t)">
+          <label for="fy">y(t) =</label><input id="fy" value="3sen(t)">
+          <label for="fz">z(t) =</label><input id="fz" value="4t">
+        </div>
+        <div class="trow">
+          <div class="fgrid" style="grid-template-columns:auto minmax(0,1fr)"><label for="t0">t inicial</label><input id="t0" value="0"></div>
+          <div class="fgrid" style="grid-template-columns:auto minmax(0,1fr)"><label for="t1">t final</label><input id="t1" value="2pi"></div>
+        </div>
+        <div class="qrow"><button class="btn gold" id="plot" style="font-family:var(--font-d)">Trazar derrota</button></div>
+        <div class="err" id="err"></div>
+        <div class="presets" id="presets"></div>
+        <p class="help">Funciones: <code>sen cos tan sqrt raiz exp ln abs</code> · constantes <code>pi e</code> · potencias con <code>^</code>. Se admite multiplicación implícita: <code>3cos(t)</code> y <code>2t^2</code> funcionan. En el simulador libre las derivadas se calculan numéricamente.</p>
+      </div>
+    </section>
+
+    <section class="card" id="quizCard">
+      <div class="card-h"><h2>Modo taller</h2><span class="score" id="score"></span></div>
+      <div class="quiz" id="quiz"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-h"><h2>Capas</h2></div>
+      <div class="layers" id="layers"></div>
+    </section>
+
+    <section class="card" id="noteCard">
+      <div class="card-h"><h2>Nota táctica</h2></div>
+      <p class="note" id="note"></p>
+    </section>
+  </div>
+</div>
+
+<footer>
+  <span>Volumen III — Funciones vectoriales · Ing. Juan Carlos Acosta Jiménez, PhD.</span>
+  <span>κ = ‖v × a‖ / ‖v‖³ · ρ = 1/κ · L = ∫‖v‖ dt</span>
+</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const TAU=Math.PI*2, PI=Math.PI, cos=Math.cos, sin=Math.sin, sq=Math.sqrt;
+
+/* ============ álgebra vectorial ============ */
+const sub=(p,q)=>[p[0]-q[0],p[1]-q[1],p[2]-q[2]];
+const add=(p,q)=>[p[0]+q[0],p[1]+q[1],p[2]+q[2]];
+const mul=(p,k)=>[p[0]*k,p[1]*k,p[2]*k];
+const nrm=p=>sq(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]);
+const dot=(p,q)=>p[0]*q[0]+p[1]*q[1]+p[2]*q[2];
+const crs=(p,q)=>[p[1]*q[2]-p[2]*q[1],p[2]*q[0]-p[0]*q[2],p[0]*q[1]-p[1]*q[0]];
+const unit=p=>{const n=nrm(p);return n<1e-12?[0,0,0]:mul(p,1/n)};
+const fin=p=>p.every(x=>Number.isFinite(x));
+
+/* ============ parser de expresiones (sin eval) ============ */
+const FUNCS={
+  sen:Math.sin, sin:Math.sin, cos:Math.cos, tan:Math.tan,
+  asin:Math.asin, acos:Math.acos, atan:Math.atan,
+  senh:Math.sinh, sinh:Math.sinh, cosh:Math.cosh, tanh:Math.tanh,
+  sqrt:Math.sqrt, raiz:Math.sqrt, exp:Math.exp,
+  ln:Math.log, log:Math.log, log10:Math.log10, abs:Math.abs
+};
+const CONSTS={pi:PI, e:Math.E};
+
+function tokenize(src){
+  const s=src.replace(/\s+/g,""), out=[]; let i=0;
+  while(i<s.length){
+    const c=s[i];
+    if(/[0-9.]/.test(c)){
+      let j=i; while(j<s.length&&/[0-9.]/.test(s[j]))j++;
+      const num=parseFloat(s.slice(i,j));
+      if(!Number.isFinite(num)) throw new Error("Número mal escrito: «"+s.slice(i,j)+"»");
+      out.push({t:"num",v:num}); i=j;
+    } else if(/[a-zA-Z]/.test(c)){
+      let j=i; while(j<s.length&&/[a-zA-Z0-9]/.test(s[j]))j++;
+      const w=s.slice(i,j).toLowerCase();
+      if(FUNCS[w]) out.push({t:"fun",v:w});
+      else if(CONSTS[w]!==undefined) out.push({t:"num",v:CONSTS[w]});
+      else if(w==="t") out.push({t:"var"});
+      else throw new Error("No reconozco «"+w+"». Use t, pi, e o una función como sen, cos, sqrt.");
+      i=j;
+    } else if("+-*/^(),".includes(c)){ out.push({t:c}); i++; }
+    else throw new Error("Símbolo no permitido: «"+c+"»");
+  }
+  // multiplicación implícita
+  const r=[];
+  for(let k=0;k<out.length;k++){
+    r.push(out[k]);
+    const a=out[k], b=out[k+1]; if(!b)continue;
+    const aEnd = a.t==="num"||a.t==="var"||a.t===")";
+    const bStart = b.t==="num"||b.t==="var"||b.t==="fun"||b.t==="(";
+    if(aEnd&&bStart) r.push({t:"*"});
+  }
+  return r;
+}
+function parse(src){
+  const tk=tokenize(src); let i=0;
+  const peek=()=>tk[i], eat=t=>{ if(tk[i]&&tk[i].t===t){i++;return true} return false };
+  function expr(){
+    let n=term();
+    while(peek()&&(peek().t==="+"||peek().t==="-")){
+      const op=tk[i++].t, r=term(); const l=n;
+      n = op==="+" ? (x=>l(x)+r(x)) : (x=>l(x)-r(x));
+    }
+    return n;
+  }
+  function term(){
+    let n=unary();
+    while(peek()&&(peek().t==="*"||peek().t==="/")){
+      const op=tk[i++].t, r=unary(); const l=n;
+      n = op==="*" ? (x=>l(x)*r(x)) : (x=>l(x)/r(x));
+    }
+    return n;
+  }
+  function unary(){
+    if(eat("-")){ const n=unary(); return x=>-n(x) }
+    if(eat("+")) return unary();
+    return power();
+  }
+  function power(){
+    const b=primary();
+    if(eat("^")){ const e=unary(); return x=>Math.pow(b(x),e(x)) }
+    return b;
+  }
+  function primary(){
+    const tok=peek();
+    if(!tok) throw new Error("La expresión termina antes de tiempo.");
+    if(tok.t==="num"){ i++; return ()=>tok.v }
+    if(tok.t==="var"){ i++; return x=>x }
+    if(tok.t==="fun"){
+      i++; const f=FUNCS[tok.v];
+      if(!eat("(")) throw new Error("Falta «(» después de "+tok.v);
+      const a=expr();
+      if(!eat(")")) throw new Error("Falta «)» al cerrar "+tok.v);
+      return x=>f(a(x));
+    }
+    if(tok.t==="("){ i++; const a=expr(); if(!eat(")")) throw new Error("Falta un paréntesis «)»."); return a }
+    throw new Error("No esperaba «"+tok.t+"» aquí.");
+  }
+  const fn=expr();
+  if(i<tk.length) throw new Error("Sobra algo al final de la expresión.");
+  return fn;
+}
+function parseNum(s){
+  const f=parse(s); const v=f(0);
+  if(!Number.isFinite(v)) throw new Error("Ese límite no es un número válido.");
+  return v;
+}
+
+/* ============ escenarios ============ */
+const km={unit:"km",vunit:"km/h",tunit:"h",dec:2};
+const m ={unit:"m", vunit:"m/s", tunit:"s", dec:1};
+const mm={unit:"m", vunit:"m/min",tunit:"min",dec:1};
+function one(r,v,a){return [{r:r,v:v,a:a,name:"Unidad"}]}
+
+const APPS=[
+{id:"a1",tag:"A1",name:"Derrota recta",title:"Aplicación 1 — Derrota rectilínea de una lancha",
+ eqn:"<b>r</b>(t) = (4 + 6t, &nbsp;−1 + 8t, &nbsp;0)", t0:0,t1:3, ...km,
+ bodies:one(t=>[4+6*t,-1+8*t,0], t=>[6,8,0], t=>[0,0,0]),
+ note:"Velocidad <strong>constante</strong> y aceleración <strong>nula</strong>: movimiento rectilíneo uniforme a 10 km/h.<span class='q'>El vector velocidad nunca cambia de tamaño ni de dirección, y por eso κ = 0. Toda recta tiene curvatura cero.</span>",
+ quiz:[{q:"¿Cuál es la rapidez de la lancha en cualquier instante?",ans:10,u:"km/h",hint:"‖(6,8,0)‖ = √(36+64)."},
+       {q:"¿Qué distancia recorre entre t = 0 y t = 3 h?",ans:30,u:"km",hint:"Con rapidez constante, L = ‖v‖ · t."}]},
+
+{id:"a2",tag:"A2",name:"Patrullaje circular",title:"Aplicación 2 — Patrullaje circular alrededor de una plataforma",
+ eqn:"<b>r</b>(t) = (6 cos t, &nbsp;6 sen t, &nbsp;0)", t0:0,t1:TAU, ...km,
+ bodies:one(t=>[6*cos(t),6*sin(t),0], t=>[-6*sin(t),6*cos(t),0], t=>[-6*cos(t),-6*sin(t),0]),
+ note:"La rapidez se queda en <strong>6 km/h</strong> todo el tiempo, pero la aceleración <strong>nunca es cero</strong>: apunta siempre al centro. Compruebe que <strong>r · v = 0</strong> en cada instante.<span class='q'>¿Cómo puede acelerar si no cambia de rapidez? Porque la aceleración también mide cambios de dirección — y eso es lo que siente la carga mal trincada.</span>",
+ quiz:[{q:"¿Cuánto vale la rapidez ‖v‖ en t = π/3?",ans:6,u:"km/h",hint:"√(36sen²t + 36cos²t) no depende de t."},
+       {q:"¿Qué distancia recorre en una vuelta completa (t = 2π)?",ans:37.699,tol:.01,u:"km",hint:"L = 6 · 2π."}]},
+
+{id:"a3",tag:"A3",name:"Submarino en espiral",title:"Aplicación 3 — Submarino en descenso helicoidal",
+ eqn:"<b>r</b>(t) = (80 cos(t/2), &nbsp;80 sen(t/2), &nbsp;−30t)", t0:0,t1:4*PI, ...mm,
+ bodies:one(t=>[80*cos(t/2),80*sin(t/2),-30*t], t=>[-40*sin(t/2),40*cos(t/2),-30], t=>[-20*cos(t/2),-20*sin(t/2),0]),
+ marks:[{t:4*PI,l:"Vuelta completa"}],
+ note:"Rapidez constante de <strong>50 m/min</strong> y radio de curvatura <strong>ρ = 125 m</strong>. Una vuelta toma 12,57 min.<span class='q'>En esa vuelta gana 377 m de profundidad pero recorre 628 m. El oxígeno y la batería se gastan con los 628 m.</span>",
+ quiz:[{q:"¿Cuál es la rapidez del submarino?",ans:50,u:"m/min",hint:"√(1600sen² + 1600cos² + 900)."},
+       {q:"¿Cuál es el radio de curvatura ρ de la espiral?",ans:125,u:"m",hint:"ρ = 1/κ, con κ = ‖v×a‖/‖v‖³."}]},
+
+{id:"a4",tag:"A4",name:"Mortero",title:"Aplicación 4 — Trayectoria de un proyectil de mortero",
+ eqn:"<b>r</b>(t) = (0, &nbsp;30t, &nbsp;49t − 4,9t²)", t0:0,t1:10, ...m,
+ bodies:one(t=>[0,30*t,49*t-4.9*t*t], t=>[0,30,49-9.8*t], t=>[0,0,-9.8]),
+ marks:[{t:5,l:"Altura máxima"},{t:10,l:"Impacto"}],
+ note:"Aceleración <strong>constante</strong> (0, 0, −9,8): solo la gravedad. Vértice a los 5 s con 122,5 m; impacto a los 10 s a 300 m.<span class='q'>La componente vertical de v se anula justo en el vértice y luego se invierte. El tiempo de impacto es exactamente el doble del tiempo de altura máxima.</span>",
+ quiz:[{q:"¿En qué instante alcanza la altura máxima?",ans:5,u:"s",hint:"Cuando la componente z de v vale cero: 49 − 9,8t = 0."},
+       {q:"¿Cuál es el alcance horizontal al impactar?",ans:300,u:"m",hint:"y(10) = 30 · 10."}]},
+
+{id:"a5",tag:"A5",name:"Lancha que acelera",title:"Aplicación 5 — Lancha con aceleración constante",
+ eqn:"<b>r</b>(t) = (t², &nbsp;12t, &nbsp;0)&nbsp;&nbsp;·&nbsp;&nbsp;v(0) = (0, 12, 0), &nbsp;a = (2, 0, 0)", t0:0,t1:5, ...km,
+ bodies:one(t=>[t*t,12*t,0], t=>[2*t,12,0], t=>[2,0,0]),
+ note:"Se obtuvo integrando dos veces la aceleración. La aceleración actúa solo en x, pero el efecto es <strong>curvar la derrota</strong>: la posición tiene un término t².<span class='q'>Para predecir dónde estará una unidad que acelera no basta multiplicar velocidad por tiempo. Hay que integrar.</span>",
+ quiz:[{q:"¿Cuál es la rapidez a las 5 horas?",ans:15.62,tol:.01,u:"km/h",hint:"v(5) = (10, 12, 0); calcule su norma."},
+       {q:"¿Cuál es la coordenada x en t = 5?",ans:25,u:"km",hint:"x(t) = t²."}]},
+
+{id:"a6",tag:"A6",name:"Cámara giroestabilizada",title:"Aplicación 6 — Orientación de una cámara con el tangente unitario",
+ eqn:"<b>r</b>(t) = (3 cos t, &nbsp;3 sen t, &nbsp;4t)&nbsp;&nbsp;·&nbsp;&nbsp;apunte según <b>T</b>(t)", t0:0,t1:TAU, ...km,
+ bodies:one(t=>[3*cos(t),3*sin(t),4*t], t=>[-3*sin(t),3*cos(t),4], t=>[-3*cos(t),-3*sin(t),0]),
+ layers:{tan:true},
+ note:"La cámara debe apuntar según <strong>T</strong>(t). Su tercera componente vale siempre 0,8: el ángulo de cabeceo <strong>no cambia</strong> aunque el helicóptero gire sin parar.<span class='q'>Normalizar separa «hacia dónde apunta» de «qué tan rápido va». Esa es la razón de ser del vector tangente unitario.</span>",
+ quiz:[{q:"¿Cuánto vale la tercera componente de T(t)?",ans:0.8,tol:.02,u:"",hint:"T = v/‖v‖ con ‖v‖ = 5; la componente z de v es 4."},
+       {q:"¿Cuál es la rapidez del helicóptero?",ans:5,u:"km/h",hint:"√(9sen² + 9cos² + 16)."}]},
+
+{id:"a7",tag:"A7",name:"Distancia helicoidal",title:"Aplicación 7 — Distancia real recorrida frente a desplazamiento",
+ eqn:"<b>r</b>(t) = (3 cos t, &nbsp;3 sen t, &nbsp;4t)&nbsp;&nbsp;·&nbsp;&nbsp;compare L con el desplazamiento", t0:0,t1:TAU, ...km,
+ bodies:one(t=>[3*cos(t),3*sin(t),4*t], t=>[-3*sin(t),3*cos(t),4], t=>[-3*cos(t),-3*sin(t),0]),
+ note:"Al cerrar la vuelta el dron recorre <strong>31,42 km</strong> pero solo se desplaza <strong>25,13 km</strong>. Los 6,29 km de diferencia son el precio de girar mientras asciende.<span class='q'>La autonomía se consume con los 31,42 km. Planear con el desplazamiento subestima el gasto en 25 % y puede dejar la aeronave sin batería.</span>",
+ quiz:[{q:"¿Cuántos km recorre en la vuelta completa?",ans:31.416,tol:.01,u:"km",hint:"L = 5 · 2π."},
+       {q:"¿Cuál es el desplazamiento al final de la vuelta?",ans:25.133,tol:.01,u:"km",hint:"Solo cambió la altura: 4 · 2π."}]},
+
+{id:"a8",tag:"A8",name:"Combustible y costo",title:"Aplicación 8 — Combustible y costo de un patrullaje de 8 horas",
+ eqn:"<b>r</b>(t) = (6 cos t, &nbsp;6 sen t, &nbsp;0)&nbsp;&nbsp;·&nbsp;&nbsp;1,8 gal/km · $12 500/gal · 4 tripulantes", t0:0,t1:8, ...km,
+ bodies:one(t=>[6*cos(t),6*sin(t),0], t=>[-6*sin(t),6*cos(t),0], t=>[-6*cos(t),-6*sin(t),0]),
+ extra:(t,L)=>{const g=L*1.8, c=g*12500, tr=4*t*18000;
+   return [["Combustible",g.toFixed(1).replace(".",",")+" gal"],
+           ["Costo combustible","$ "+Math.round(c).toLocaleString("es-CO")],
+           ["Costo tripulación","$ "+Math.round(tr).toLocaleString("es-CO")],
+           ["Costo total","<span class='hi'>$ "+Math.round(c+tr).toLocaleString("es-CO")+"</span>"]]},
+ note:"El presupuesto de combustible <strong>no depende del área vigilada</strong> sino de la longitud de arco de la derrota.<span class='q'>Cambiar el patrón de patrullaje cambia L, y con ello el costo, sin alterar la zona cubierta. Optimizar el patrón es minimizar una integral.</span>",
+ quiz:[{q:"¿Cuántos km recorre en las 8 horas de comisión?",ans:48,u:"km",hint:"L = 6 km/h · 8 h."},
+       {q:"¿Cuál es el costo total de la comisión, en pesos?",ans:1656000,tol:.005,u:"$",hint:"Combustible 48·1,8·12 500 más tripulación 4·8·18 000."}]},
+
+{id:"a9",tag:"A9",name:"Radio de giro",title:"Aplicación 9 — Radio de giro de una fragata",
+ eqn:"<b>r</b>(t) = (250 cos(t/5), &nbsp;250 sen(t/5), &nbsp;0)&nbsp;&nbsp;·&nbsp;&nbsp;ρ mínimo del buque = 300 m", t0:0,t1:5*PI, ...mm,
+ bodies:one(t=>[250*cos(t/5),250*sin(t/5),0], t=>[-50*sin(t/5),50*cos(t/5),0], t=>[-10*cos(t/5),-10*sin(t/5),0]),
+ layers:{osc:true},
+ extra:()=>[["ρ planeado","250,0 m"],["ρ mínimo del buque","300,0 m"],
+            ["Veredicto","<span class='alertv'>NO EJECUTABLE</span>"]],
+ note:"El viraje planeado exige un radio de <strong>250 m</strong>, pero la fragata no cierra por debajo de <strong>300 m</strong>.<span class='q'>La condición es ρ = 1/κ ≥ ρ mínimo del buque. La curvatura deja de ser abstracta: es el criterio que aprueba o devuelve un plan de maniobra.</span>",
+ quiz:[{q:"¿Cuánto vale la curvatura κ de este viraje?",ans:0.004,tol:.03,u:"m⁻¹",hint:"Para una circunferencia de radio a, κ = 1/a."},
+       {q:"¿Cuál es el radio de curvatura ρ?",ans:250,u:"m",hint:"ρ = 1/κ."}]},
+
+{id:"a10",tag:"A10",name:"Cruce de una ladera",title:"Aplicación 10 — Instante en que la trayectoria cruza un plano",
+ eqn:"<b>r</b>(t) = (2 + t, &nbsp;1 + 2t, &nbsp;5 − t)&nbsp;&nbsp;·&nbsp;&nbsp;plano x + y + z = 14", t0:0,t1:6, ...km,
+ bodies:one(t=>[2+t,1+2*t,5-t], t=>[1,2,-1], t=>[0,0,0]),
+ plane:{n:[1,1,1], d:14}, marks:[{t:3,l:"Cruza la ladera"}],
+ note:"Sustituyendo las componentes en la ecuación del plano queda 2t + 8 = 14, luego <strong>t = 3</strong> y el punto es <strong>(5, 7, 2)</strong>.<span class='q'>Es el procedimiento del Volumen II, pero ahora el parámetro tiene significado nuevo: t = 3 no es «un valor», es el instante del cruce.</span>",
+ quiz:[{q:"¿En qué instante el dron cruza la ladera?",ans:3,u:"min",hint:"Sustituya x, y, z en x + y + z = 14 y despeje t."},
+       {q:"¿Cuál es la coordenada y del punto de cruce?",ans:7,u:"km",hint:"y(3) = 1 + 2·3."}]},
+
+{id:"a11",tag:"A11",name:"¿Colisionan?",title:"Aplicación 11 — Riesgo de colisión entre dos lanchas",
+ eqn:"<b>r</b>₁(t) = (2 + 3t, 1 + 2t, 0)&nbsp;&nbsp;·&nbsp;&nbsp;<span class='l2'><b>r</b>₂(t) = (20 − 3t, 13 − 2t, 0)</span>", t0:0,t1:5, ...km,
+ bodies:[{r:t=>[2+3*t,1+2*t,0],v:t=>[3,2,0],a:t=>[0,0,0],name:"Lancha 1"},
+         {r:t=>[20-3*t,13-2*t,0],v:t=>[-3,-2,0],a:t=>[0,0,0],name:"Lancha 2"}],
+ marks:[{t:3,l:"COLISIÓN"}],
+ note:"Con el <strong>mismo</strong> parámetro t en ambas ecuaciones, las dos coordenadas dan t = 3: ambas llegan a (11, 7, 0) a la vez. <strong>Sí hay colisión.</strong><span class='q'>En el Volumen II se usaban parámetros distintos (t y s) porque solo interesaba si las derrotas se cortaban. Aquí el reloj es común, así que un único t debe satisfacer todas las ecuaciones.</span>",
+ quiz:[{q:"¿En qué instante ocurre la colisión?",ans:3,u:"h",hint:"Iguale 2 + 3t = 20 − 3t usando el mismo t."},
+       {q:"¿Cuál es la separación entre las lanchas en t = 0?",ans:21.63,tol:.01,u:"km",hint:"‖(20,13,0) − (2,1,0)‖."}]},
+
+{id:"a12",tag:"A12",name:"Lancha que frena",title:"Aplicación 12 — Lancha que desacelera hasta detenerse",
+ eqn:"<b>v</b>(t) = (12 − 2t)·(0,6; &nbsp;0,8; &nbsp;0)&nbsp;&nbsp;·&nbsp;&nbsp;se detiene en t = 6", t0:0,t1:6, ...km,
+ bodies:one(t=>[0.6*(12*t-t*t),0.8*(12*t-t*t),0], t=>[0.6*(12-2*t),0.8*(12-2*t),0], t=>[-1.2,-1.6,0]),
+ marks:[{t:6,l:"Se detiene"}],
+ note:"La rapidez baja linealmente de 12 a 0 km/h. Recorre <strong>36 km</strong> antes de detenerse.<span class='q'>La rapidez media no es 12 km/h sino 36/6 = 6 km/h, la mitad. Estimar con la rapidez inicial daría 72 km, el doble de lo real.</span>",
+ quiz:[{q:"¿En qué instante se detiene la lancha?",ans:6,u:"h",hint:"Cuando 12 − 2t = 0."},
+       {q:"¿Qué distancia recorre hasta detenerse?",ans:36,u:"km",hint:"L = ∫₀⁶ (12 − 2t) dt."}]},
+
+{id:"a13",tag:"A13",name:"Navegación inercial",title:"Aplicación 13 — Posición de un dron a partir de su velocidad",
+ eqn:"<b>v</b>(t) = (6t, &nbsp;4, &nbsp;12t²), &nbsp;<b>r</b>(0) = (1, 0, 3)&nbsp;&nbsp;⇒&nbsp;&nbsp;<b>r</b>(t) = (1 + 3t², &nbsp;4t, &nbsp;3 + 4t³)", t0:0,t1:2, ...km,
+ bodies:one(t=>[1+3*t*t,4*t,3+4*t*t*t], t=>[6*t,4,12*t*t], t=>[6,0,24*t]),
+ note:"La integral definida de la velocidad entrega el <strong>desplazamiento</strong>; la de la rapidez, la distancia recorrida, que es mayor.<span class='q'>Sin el dato inicial r(0) no se puede recuperar la posición. Por eso todo sistema de navegación inercial exige una posición de referencia al arrancar.</span>",
+ quiz:[{q:"¿Cuál es la coordenada z del dron en t = 2 h?",ans:35,u:"km",hint:"z(t) = 3 + 4t³."},
+       {q:"¿Cuánto vale el desplazamiento en x entre t = 0 y t = 2?",ans:12,u:"km",hint:"∫₀² 6t dt = 3t² evaluado de 0 a 2."}]},
+
+{id:"a14",tag:"A14",name:"Ventana de validez",title:"Aplicación 14 — Dominio: cuándo el modelo deja de servir",
+ eqn:"<b>r</b>(t) = (√(t − 2), &nbsp;ln(10 − t), &nbsp;1/(t − 6))&nbsp;&nbsp;·&nbsp;&nbsp;dominio [2, 6) ∪ (6, 10)", t0:2.25,t1:9.75, ...km,
+ bodies:one(t=>[sq(Math.max(t-2,0)),Math.log(Math.max(10-t,1e-9)),1/(t-6)],
+            t=>[0.5/sq(Math.max(t-2,1e-9)),-1/Math.max(10-t,1e-9),-1/((t-6)*(t-6))],
+            t=>[-0.25/Math.pow(Math.max(t-2,1e-9),1.5),-1/Math.pow(Math.max(10-t,1e-9),2),2/Math.pow(t-6,3)]),
+ gap:[5.3,6.7],
+ note:"El modelo solo es válido entre las horas 2 y 10, y <strong>falla exactamente en t = 6</strong>. Avance el parámetro y observe cómo la curva se dispara cerca de ese valor.<span class='q'>Un modelo evaluado fuera de su ventana no avisa que está mal: entrega números, y esos números se parecen mucho a una posición real.</span>",
+ quiz:[{q:"¿En qué valor de t falla el modelo?",ans:6,u:"h",hint:"La tercera componente tiene denominador t − 6."},
+       {q:"¿Cuál es el valor mínimo de t admitido por el dominio?",ans:2,u:"h",hint:"La raíz exige t − 2 ≥ 0."}]},
+
+{id:"a15",tag:"A15",name:"Dos parametrizaciones",title:"Aplicación 15 — Misma curva, movimientos distintos",
+ eqn:"<b>r</b>₁(t) = (6 cos t, 6 sen t, 0)&nbsp;&nbsp;·&nbsp;&nbsp;<span class='l2'><b>r</b>₂(t) = (6 cos 3t, 6 sen 3t, 0)</span>", t0:0,t1:TAU, ...km,
+ bodies:[{r:t=>[6*cos(t),6*sin(t),0],v:t=>[-6*sin(t),6*cos(t),0],a:t=>[-6*cos(t),-6*sin(t),0],name:"Lancha 1"},
+         {r:t=>[6*cos(3*t),6*sin(3*t),0],v:t=>[-18*sin(3*t),18*cos(3*t),0],a:t=>[-54*cos(3*t),-54*sin(3*t),0],name:"Lancha 2"}],
+ note:"Las dos derrotas son geométricamente <strong>idénticas</strong> y tienen la misma curvatura, pero la segunda lancha va <strong>tres veces más rápido</strong> y da tres vueltas.<span class='q'>La curva responde «¿por dónde?»; la función vectorial responde además «¿cuándo y a qué costo?». Para el planeamiento importa la primera; para el presupuesto, la segunda.</span>",
+ quiz:[{q:"¿Cuál es la rapidez de la segunda lancha?",ans:18,u:"km/h",hint:"‖(−18sen3t, 18cos3t, 0)‖."},
+       {q:"¿Cuánto tarda la segunda lancha en dar una vuelta?",ans:2.094,tol:.02,u:"h",hint:"El argumento es 3t, así que una vuelta exige 3t = 2π."}]}
+];
+
+const EXAMPLES=[
+{id:"e1",tag:"1.4",name:"Patrón elíptico",title:"Ejemplo 1.4 — Patrón elíptico de búsqueda",
+ eqn:"<b>r</b>(t) = (2 cos t, &nbsp;−3 sen t, &nbsp;0)&nbsp;&nbsp;⇒&nbsp;&nbsp;x²/4 + y²/9 = 1", t0:0,t1:TAU, ...km,
+ bodies:one(t=>[2*cos(t),-3*sin(t),0], t=>[-2*sin(t),-3*cos(t),0], t=>[-2*cos(t),3*sin(t),0]),
+ layers:{osc:true},
+ note:"Eliminando el parámetro queda una <strong>elipse</strong> de semiejes 2 y 3. El signo negativo solo invierte el sentido del giro.<span class='q'>Mire el círculo osculador: la curvatura es máxima en los extremos del eje menor. En un patrón de búsqueda, los virajes cerrados están en las puntas.</span>",
+ quiz:[{q:"¿Cuál es el semieje mayor de la elipse?",ans:3,u:"km",hint:"De x²/4 + y²/9 = 1, los semiejes son √4 y √9."},
+       {q:"¿Cuánto vale la rapidez en t = 0?",ans:3,u:"km/h",hint:"v(0) = (0, −3, 0)."}]},
+
+{id:"e2",tag:"1.5",name:"Hélice de dos vueltas",title:"Ejemplo 1.5 — Hélice sobre un cilindro",
+ eqn:"<b>r</b>(t) = (4 cos t, &nbsp;4 sen t, &nbsp;t), &nbsp;0 ≤ t ≤ 4π&nbsp;&nbsp;⇒&nbsp;&nbsp;cilindro x² + y² = 16", t0:0,t1:4*PI, ...km,
+ bodies:one(t=>[4*cos(t),4*sin(t),t], t=>[-4*sin(t),4*cos(t),1], t=>[-4*cos(t),-4*sin(t),0]),
+ note:"Las dos primeras componentes dan x² + y² = 16: un <strong>cilindro</strong>. La tercera hace que la unidad suba sin parar.<span class='q'>Como t llega hasta 4π, la hélice da exactamente dos vueltas completas. Gire la vista para verlo en tres dimensiones.</span>",
+ quiz:[{q:"¿Cuál es el radio del cilindro?",ans:4,u:"km",hint:"x² + y² = 16."},
+       {q:"¿Cuántas vueltas completas da en el intervalo dado?",ans:2,u:"vueltas",hint:"Una vuelta son 2π; el intervalo llega a 4π."}]},
+
+{id:"e3",tag:"1.19",name:"Curvatura κ = 1/a",title:"Ejemplo 1.19 — Curvatura de una circunferencia",
+ eqn:"<b>r</b>(t) = (5 cos t, &nbsp;5 sen t, &nbsp;0)&nbsp;&nbsp;⇒&nbsp;&nbsp;κ = 1/5", t0:0,t1:TAU, ...km,
+ bodies:one(t=>[5*cos(t),5*sin(t),0], t=>[-5*sin(t),5*cos(t),0], t=>[-5*cos(t),-5*sin(t),0]),
+ layers:{osc:true},
+ note:"Una circunferencia de radio a tiene curvatura constante <strong>κ = 1/a</strong>, y su círculo osculador es ella misma.<span class='q'>Esta es la verificación que conviene recordar: si su cálculo de κ para un círculo no da 1/a, hay un error en el procedimiento.</span>",
+ quiz:[{q:"¿Cuánto vale la curvatura κ?",ans:0.2,tol:.03,u:"km⁻¹",hint:"κ = 1/a con a = 5."},
+       {q:"¿Y el radio de curvatura ρ?",ans:5,u:"km",hint:"ρ = 1/κ, y coincide con el radio."}]},
+
+{id:"e4",tag:"1.21",name:"Cúbica alabeada",title:"Ejemplo 1.21 — Curvatura variable en una cúbica alabeada",
+ eqn:"<b>r</b>(t) = (t, &nbsp;t², &nbsp;t³)&nbsp;&nbsp;·&nbsp;&nbsp;κ(1) ≈ 0,17", t0:-1.4,t1:1.4, ...km,
+ bodies:one(t=>[t,t*t,t*t*t], t=>[1,2*t,3*t*t], t=>[0,2,6*t]),
+ layers:{osc:true}, marks:[{t:1,l:"t = 1"}],
+ note:"Aquí la curvatura <strong>sí cambia</strong> con el tiempo. En t = 1 vale κ ≈ 0,17 con ρ ≈ 5,9.<span class='q'>Siga el círculo osculador mientras avanza: cuando se achica, el viraje se cierra. Si su radio baja del radio de giro del buque, la maniobra es imposible.</span>",
+ quiz:[{q:"¿Cuánto vale la curvatura en t = 1? (dos decimales)",ans:0.17,tol:.06,u:"",hint:"κ = ‖v×a‖/‖v‖³ con v(1) = (1,2,3) y a(1) = (0,2,6)."},
+       {q:"¿Cuál es la rapidez en t = 1?",ans:3.742,tol:.02,u:"km/h",hint:"‖(1,2,3)‖ = √14."}]},
+
+{id:"e5",tag:"1.10",name:"Rapidez constante",title:"Ejemplo 1.10 — Rapidez constante con aceleración no nula",
+ eqn:"<b>r</b>(t) = (2 cos t, &nbsp;2 sen t, &nbsp;3t)&nbsp;&nbsp;·&nbsp;&nbsp;‖v‖ = √13 constante", t0:0,t1:TAU, ...km,
+ bodies:one(t=>[2*cos(t),2*sin(t),3*t], t=>[-2*sin(t),2*cos(t),3], t=>[-2*cos(t),-2*sin(t),0]),
+ note:"La rapidez vale <strong>√13 ≈ 3,61 km/h</strong> en todo instante, y aun así la aceleración nunca es cero.<span class='q'>No hay contradicción: la aceleración mide también cambios de dirección. Un buque que vira a máquinas constantes está acelerando.</span>",
+ quiz:[{q:"¿Cuánto vale la rapidez? (dos decimales)",ans:3.606,tol:.02,u:"km/h",hint:"√(4sen² + 4cos² + 9) = √13."},
+       {q:"¿Cuánto vale ‖a‖ en cualquier instante?",ans:2,u:"km/h²",hint:"a = (−2cos t, −2sen t, 0)."}]}
+];
+
+const LAB={id:"lab",tag:"",name:"Simulador libre",title:"Simulador libre — escriba sus propias funciones",
+ eqn:"", t0:0,t1:TAU, unit:"u",vunit:"u/t",tunit:"t",dec:3, bodies:[], note:"", quiz:[]};
+
+const CATS=[{k:"app",label:"Aplicaciones",items:APPS},
+            {k:"ex", label:"Ejemplos",    items:EXAMPLES},
+            {k:"lab",label:"Simulador libre",items:[LAB]}];
+
+/* ============ estado ============ */
+let S=APPS[1], t=S.t0, playing=false, az=-0.62, el=0.42, last=0, cat="app";
+let arcT=[], arcL=[], labErr=false;
+const L={pos:true,vel:true,acc:true,tan:false,osc:false,grid:true};
+const BASE={pos:true,vel:true,acc:true,tan:false,osc:false,grid:true};
+
+const cv=document.getElementById("cv"), cx=cv.getContext("2d");
+let W=900,H=620,DPR=1,cxm=0,cym=0,SCL=1;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const inGap=tt=>!!(S.gap && tt>S.gap[0] && tt<S.gap[1]);
+
+function buildArc(){
+  const N=1200,h=(S.t1-S.t0)/N, b=S.bodies[0];
+  arcT=new Array(N+1); arcL=new Array(N+1); arcT[0]=S.t0; arcL[0]=0;
+  if(!b){return}
+  let acc=0;
+  for(let i=1;i<=N;i++){
+    const ta=S.t0+(i-1)*h, tb=S.t0+i*h, tm=(ta+tb)/2;
+    const f=x=>{const q=b.v(x); return fin(q)?Math.min(nrm(q),1e6):0};
+    acc += (h/6)*(f(ta)+4*f(tm)+f(tb));
+    arcT[i]=tb; arcL[i]=acc;
+  }
+}
+function arcAt(tt){
+  if(!arcL.length)return 0;
+  const N=arcT.length-1;
+  if(tt<=arcT[0])return 0;
+  if(tt>=arcT[N])return arcL[N];
+  const h=(S.t1-S.t0)/N, i=Math.min(N-1,Math.max(0,Math.floor((tt-S.t0)/h)));
+  const f=(tt-arcT[i])/(arcT[i+1]-arcT[i]);
+  return arcL[i]+f*(arcL[i+1]-arcL[i]);
+}
+function extent(){
+  let mx=0;
+  S.bodies.forEach(b=>{for(let i=0;i<=200;i++){
+    const tt=S.t0+(S.t1-S.t0)*i/200; if(inGap(tt))continue;
+    const p=b.r(tt); if(!fin(p))continue;
+    mx=Math.max(mx,Math.abs(p[0]),Math.abs(p[1]),Math.abs(p[2]));
+  }});
+  return Math.max(mx,1e-6);
+}
+function fit(){ SCL=(Math.min(W,H)*0.33)/extent() }
+function proj(p){
+  const u=[-sin(az),cos(az),0];
+  const w=[-cos(az)*sin(el),-sin(az)*sin(el),cos(el)];
+  return [cxm+dot(p,u)*SCL, cym-dot(p,w)*SCL];
+}
+
+/* ============ dibujo ============ */
+function line(p,q,c,wd,dash){
+  const A=proj(p),B=proj(q);
+  cx.save(); cx.strokeStyle=c; cx.lineWidth=wd; if(dash)cx.setLineDash(dash);
+  cx.beginPath(); cx.moveTo(A[0],A[1]); cx.lineTo(B[0],B[1]); cx.stroke(); cx.restore();
+}
+function arrow(from,to,c,wd,label){
+  const A=proj(from),B=proj(to);
+  const dx=B[0]-A[0],dy=B[1]-A[1],len=Math.hypot(dx,dy);
+  if(!Number.isFinite(len))return;
+  const ux=len>1e-6?dx/len:0, uy=len>1e-6?dy/len:0;
+  cx.save(); cx.strokeStyle=c; cx.fillStyle=c; cx.lineWidth=wd; cx.lineCap="round";
+  cx.beginPath(); cx.moveTo(A[0],A[1]); cx.lineTo(B[0],B[1]); cx.stroke();
+  if(len>8){
+    const hl=Math.min(13,len*0.3), hw=hl*0.46;
+    cx.beginPath(); cx.moveTo(B[0],B[1]);
+    cx.lineTo(B[0]-ux*hl-uy*hw,B[1]-uy*hl+ux*hw);
+    cx.lineTo(B[0]-ux*hl+uy*hw,B[1]-uy*hl-ux*hw);
+    cx.closePath(); cx.fill();
+  }
+  if(label&&len>14){
+    cx.font='600 13px "IBM Plex Mono",monospace';
+    cx.textAlign="left"; cx.textBaseline="middle";
+    cx.fillText(label,B[0]+ux*9+4,B[1]+uy*9);
+  }
+  cx.restore();
+}
+function floorGrid(){
+  if(!L.grid)return;
+  const mx=extent(), raw=mx/3, pw=Math.pow(10,Math.floor(Math.log10(raw)));
+  const step=(raw/pw>=5?5:raw/pw>=2?2:1)*pw;
+  const n=Math.min(14,Math.ceil(mx/step)+1), ext=n*step, g=css("--grid");
+  for(let i=-n;i<=n;i++){
+    line([i*step,-ext,0],[i*step,ext,0],g,1);
+    line([-ext,i*step,0],[ext,i*step,0],g,1);
+  }
+}
+function drawPlane(){
+  if(!S.plane)return;
+  const n=unit(S.plane.n), p0=mul(n,S.plane.d/nrm(S.plane.n));
+  let u=crs(n,[0,0,1]); if(nrm(u)<1e-6)u=crs(n,[0,1,0]); u=unit(u);
+  const w=unit(crs(n,u)), e=extent()*0.9, c=css("--plane"), K=6;
+  cx.save(); cx.globalAlpha=.30;
+  for(let i=-K;i<=K;i++){
+    const o=mul(u,e*i/K);
+    line(add(add(p0,o),mul(w,-e)),add(add(p0,o),mul(w,e)),c,1);
+    const o2=mul(w,e*i/K);
+    line(add(add(p0,o2),mul(u,-e)),add(add(p0,o2),mul(u,e)),c,1);
+  }
+  cx.restore();
+}
+function drawCurve(b,idx){
+  const N=400, done=idx?css("--body2"):css("--curve-done");
+  cx.save(); cx.strokeStyle=css("--curve-todo"); cx.lineWidth=2; cx.setLineDash([5,5]);
+  cx.beginPath(); let pen=true;
+  for(let i=0;i<=N;i++){
+    const tt=S.t0+(S.t1-S.t0)*i/N;
+    if(inGap(tt)){pen=true;continue}
+    const p=b.r(tt); if(!fin(p)){pen=true;continue}
+    const P=proj(p);
+    if(Math.abs(P[0])>1e5||Math.abs(P[1])>1e5){pen=true;continue}
+    pen?cx.moveTo(P[0],P[1]):cx.lineTo(P[0],P[1]); pen=false;
+  }
+  cx.stroke(); cx.restore();
+
+  cx.save(); cx.strokeStyle=done; cx.lineWidth=3.4; cx.lineJoin="round"; cx.lineCap="round";
+  cx.beginPath(); pen=true;
+  const M=Math.max(2,Math.round(N*(t-S.t0)/(S.t1-S.t0)));
+  for(let i=0;i<=M;i++){
+    const tt=S.t0+(t-S.t0)*i/M;
+    if(inGap(tt)){pen=true;continue}
+    const p=b.r(tt); if(!fin(p)){pen=true;continue}
+    const P=proj(p);
+    if(Math.abs(P[0])>1e5||Math.abs(P[1])>1e5){pen=true;continue}
+    pen?cx.moveTo(P[0],P[1]):cx.lineTo(P[0],P[1]); pen=false;
+  }
+  cx.stroke(); cx.restore();
+}
+function marks(){
+  if(!S.marks)return;
+  const b=S.bodies[0]; if(!b)return;
+  S.marks.forEach(mk=>{
+    const p=b.r(mk.t); if(!fin(p))return;
+    const P=proj(p), near=Math.abs(t-mk.t)<(S.t1-S.t0)*0.02;
+    cx.save();
+    cx.strokeStyle=near?css("--bad"):css("--ink-faint");
+    cx.lineWidth=near?2.4:1.6;
+    cx.beginPath(); cx.arc(P[0],P[1],near?10:7,0,TAU); cx.stroke();
+    cx.font=(near?"600 12px ":"12px ")+'"Barlow",sans-serif';
+    cx.fillStyle=near?css("--bad"):css("--ink-faint");
+    cx.textAlign="center"; cx.textBaseline="bottom";
+    cx.fillText(mk.l,P[0],P[1]-13);
+    cx.restore();
+  });
+}
+function osculating(p,v,a,show){
+  const va=crs(v,a), kn=nrm(va), sp=nrm(v);
+  if(!Number.isFinite(kn)||kn<1e-9||sp<1e-9)return null;
+  const k=kn/(sp*sp*sp), rho=1/k;
+  if(!Number.isFinite(rho)||rho>extent()*60)return {k:k,rho:rho};
+  const Nv=unit(crs(va,v)), Tv=unit(v), c=add(p,mul(Nv,rho));
+  if(show){
+    cx.save(); cx.strokeStyle=css("--osc"); cx.lineWidth=1.6;
+    cx.setLineDash([4,4]); cx.globalAlpha=.85; cx.beginPath();
+    for(let i=0;i<=90;i++){
+      const th=TAU*i/90;
+      const q=add(c,add(mul(Nv,-rho*cos(th)),mul(Tv,rho*sin(th))));
+      const P=proj(q); i?cx.lineTo(P[0],P[1]):cx.moveTo(P[0],P[1]);
+    }
+    cx.stroke();
+    const C=proj(c); cx.setLineDash([]); cx.globalAlpha=1; cx.fillStyle=css("--osc");
+    cx.beginPath(); cx.arc(C[0],C[1],3,0,TAU); cx.fill(); cx.restore();
+  }
+  return {k:k,rho:rho};
+}
+function draw(){
+  cx.save(); cx.setTransform(DPR,0,0,DPR,0,0);
+  cx.clearRect(0,0,W,H);
+  cx.fillStyle=css("--panel-2"); cx.fillRect(0,0,W,H);
+
+  if(!S.bodies.length){
+    cx.fillStyle=css("--ink-faint"); cx.font='15px "Barlow",sans-serif';
+    cx.textAlign="center"; cx.textBaseline="middle";
+    cx.fillText(labErr?"Corrija la expresión para trazar la derrota.":"Escriba sus funciones y pulse «Trazar derrota».",W/2,H/2);
+    cx.restore(); document.getElementById("rows").innerHTML=""; return;
+  }
+  floorGrid(); drawPlane();
+  const e=extent()*1.22, cF=css("--ink-faint");
+  arrow([0,0,0],[e,0,0],cF,1.4,"x");
+  arrow([0,0,0],[0,e,0],cF,1.4,"y");
+  arrow([0,0,0],[0,0,e],cF,1.4,"z");
+  S.bodies.forEach(drawCurve); marks();
+
+  const gap=inGap(t);
+  document.getElementById("flag").hidden=!gap;
+
+  const ref=extent();
+  let vmax=0,amax=0;
+  S.bodies.forEach(b=>{for(let i=0;i<=120;i++){
+    const tt=S.t0+(S.t1-S.t0)*i/120; if(inGap(tt))continue;
+    const vv=b.v(tt), aa=b.a(tt);
+    if(fin(vv))vmax=Math.max(vmax,nrm(vv)); if(fin(aa))amax=Math.max(amax,nrm(aa));
+  }});
+  const kv=vmax>1e-9?(ref*0.46)/vmax:0, ka=amax>1e-9?(ref*0.30)/amax:0;
+
+  let oscMain=null;
+  if(!gap) S.bodies.forEach((b,idx)=>{
+    const p=b.r(t), v=b.v(t), a=b.a(t);
+    if(!fin(p))return;
+    const o=osculating(p,v,a,L.osc&&idx===0);
+    if(idx===0)oscMain=o;
+    if(Math.abs(p[2])>1e-9){
+      line(p,[p[0],p[1],0],css("--ink-faint"),1,[3,4]);
+      const F=proj([p[0],p[1],0]);
+      cx.save(); cx.fillStyle=css("--ink-faint"); cx.globalAlpha=.6;
+      cx.beginPath(); cx.arc(F[0],F[1],3,0,TAU); cx.fill(); cx.restore();
+    }
+    const cPos=idx?css("--body2"):css("--v-pos");
+    if(L.pos) arrow([0,0,0],p,cPos,2.4,idx?"r₂":"r");
+    if(fin(a)&&L.acc&&nrm(a)>1e-9) arrow(p,add(p,mul(a,ka)),css("--v-acc"),2.6,idx?"":"a");
+    if(fin(v)&&L.vel&&nrm(v)>1e-9) arrow(p,add(p,mul(v,kv)),css("--v-vel"),3.0,idx?"":"v");
+    if(fin(v)&&L.tan&&nrm(v)>1e-9) arrow(p,add(p,mul(unit(v),ref*0.26)),css("--v-tan"),2.4,idx?"":"T");
+    const P=proj(p);
+    cx.save(); cx.fillStyle=css("--panel");
+    cx.strokeStyle=idx?css("--body2"):css("--ink"); cx.lineWidth=2.4;
+    cx.beginPath(); cx.arc(P[0],P[1],6.5,0,TAU); cx.fill(); cx.stroke(); cx.restore();
+  });
+  cx.restore();
+  readout(oscMain,gap);
+}
+
+/* ============ consola ============ */
+const rowsEl=document.getElementById("rows");
+const fmt=(x,d)=>{
+  if(!Number.isFinite(x))return "—";
+  if(Math.abs(x)<5e-7)x=0;
+  return x.toFixed(d).replace(".",",");
+};
+const vecStr=(p,d)=>fin(p)?"("+p.map(x=>fmt(x,d)).join(", ")+")":"—";
+
+function readout(osc,gap){
+  const d=S.dec, b=S.bodies[0];
+  if(!b){
+    rowsEl.innerHTML="<div class='row'><span class='k'>Estado</span><span class='v'>"+
+      (labErr?"<span class='alertv'>expresión con error</span>":"a la espera de una derrota")+"</span></div>";
+    document.getElementById("tread").textContent="t = —";
+    return;
+  }
+  if(gap){
+    rowsEl.innerHTML="<div class='row'><span class='k'>t</span><span class='v'>"+fmt(t,2)+" "+S.tunit+
+      "</span></div><div class='row'><span class='k'>Estado</span><span class='v alertv'>MODELO NO VÁLIDO</span></div>"+
+      "<div class='row'><span class='k'>Motivo</span><span class='v'>t fuera del dominio</span></div>";
+    document.getElementById("tread").textContent="t = "+fmt(t,2)+" "+S.tunit;
+    return;
+  }
+  const p=b.r(t), v=b.v(t), a=b.a(t), sp=nrm(v);
+  const rows=[
+    ["t",fmt(t,2)+" "+S.tunit,""],
+    ["r(t)",vecStr(p,d)+" "+S.unit,"--v-pos"],
+    ["v(t)",vecStr(v,d)+" "+S.vunit,"--v-vel"],
+    ["Rapidez ‖v‖","<span class='hi'>"+fmt(sp,d)+" "+S.vunit+"</span>",""],
+    ["a(t)",vecStr(a,d),"--v-acc"],
+    ["‖a‖",fmt(nrm(a),d),""],
+    ["T(t)",sp>1e-9?vecStr(unit(v),3):"—","--v-tan"],
+    ["Curvatura κ",osc?fmt(osc.k,4):"0 (recta)","--osc"],
+    ["Radio ρ = 1/κ",osc&&Number.isFinite(osc.rho)?fmt(osc.rho,d)+" "+S.unit:"∞","--osc"],
+    ["Recorrido L","<span class='hi'>"+fmt(arcAt(t),d)+" "+S.unit+"</span>",""],
+    ["Desplazamiento",fmt(nrm(sub(p,b.r(S.t0))),d)+" "+S.unit,""]
+  ];
+  if(S.bodies[1]){
+    const q=S.bodies[1].r(t), sep=nrm(sub(p,q));
+    rows.push(["Posición 2",vecStr(q,d)+" "+S.unit,"--body2"]);
+    rows.push(["Rapidez 2",fmt(nrm(S.bodies[1].v(t)),d)+" "+S.vunit,"--body2"]);
+    rows.push(["Separación",(sep<0.05?"<span class='alertv'>":"<span class='hi'>")+fmt(sep,d)+" "+S.unit+"</span>",""]);
+  }
+  let html=rows.map(r=>"<div class='row'><span class='k'>"+
+    (r[2]?"<span class='sw' style='background:var("+r[2]+")'></span>":"")+r[0]+
+    "</span><span class='v'>"+r[1]+"</span></div>").join("");
+  if(S.extra) html+=S.extra(t,arcAt(t)).map(r=>
+    "<div class='row sep'><span class='k'>"+r[0]+"</span><span class='v'>"+r[1]+"</span></div>").join("");
+  rowsEl.innerHTML=html;
+  document.getElementById("tread").textContent="t = "+fmt(t,2)+" "+S.tunit;
+}
+
+/* ============ capas ============ */
+const LAYERS=[["pos","Posición r","--v-pos"],["vel","Velocidad v","--v-vel"],
+  ["acc","Aceleración a","--v-acc"],["tan","Tangente T","--v-tan"],
+  ["osc","Círculo osculador","--osc"],["grid","Plano del agua","--grid"]];
+document.getElementById("layers").innerHTML=LAYERS.map(l=>
+  "<label><input type='checkbox' id='ly-"+l[0]+"'><span class='sw' style='background:var("+l[2]+")'></span>"+l[1]+"</label>").join("");
+LAYERS.forEach(l=>document.getElementById("ly-"+l[0]).addEventListener("change",e=>{
+  L[l[0]]=e.target.checked; draw();
+}));
+function syncLayers(){ LAYERS.forEach(l=>{document.getElementById("ly-"+l[0]).checked=L[l[0]]}) }
+
+/* ============ taller ============ */
+let answered={};
+try{ answered=JSON.parse(localStorage.getItem("plotter-quiz")||"{}") }catch(_){ answered={} }
+function saveQuiz(){ try{ localStorage.setItem("plotter-quiz",JSON.stringify(answered)) }catch(_){} }
+
+function renderQuiz(){
+  const el=document.getElementById("quiz"), card=document.getElementById("quizCard");
+  if(!S.quiz||!S.quiz.length){card.hidden=true;return}
+  card.hidden=false;
+  el.innerHTML=S.quiz.map((q,i)=>
+    "<div class='qitem'><p>"+(i+1)+". "+q.q+"</p><div class='qrow'>"+
+    "<input id='qa-"+i+"' inputmode='decimal' placeholder='respuesta' aria-label='Respuesta "+(i+1)+"'>"+
+    (q.u?"<span class='u'>"+q.u+"</span>":"")+
+    "<button type='button' data-q='"+i+"'>Verificar</button></div>"+
+    "<div class='fb' id='fb-"+i+"'></div></div>").join("");
+  el.querySelectorAll("button[data-q]").forEach(btn=>btn.addEventListener("click",()=>check(+btn.dataset.q)));
+  el.querySelectorAll("input").forEach((inp,i)=>inp.addEventListener("keydown",e=>{if(e.key==="Enter")check(i)}));
+  updScore();
+}
+function check(i){
+  const q=S.quiz[i], raw=document.getElementById("qa-"+i).value.trim().replace(",",".");
+  const fb=document.getElementById("fb-"+i);
+  fb.className="fb show";
+  if(!raw){ fb.classList.add("bad"); fb.textContent="Escriba un número antes de verificar."; return }
+  const val=parseFloat(raw);
+  if(!Number.isFinite(val)){ fb.classList.add("bad"); fb.textContent="Eso no es un número. Use punto o coma decimal."; return }
+  const tol=q.tol!==undefined?q.tol:0.01;
+  const ok=Math.abs(val-q.ans)<=Math.max(Math.abs(q.ans)*tol,1e-6);
+  if(ok){
+    fb.classList.add("good");
+    fb.textContent="Correcto. La respuesta es "+fmt(q.ans,q.ans%1===0?0:3)+(q.u?" "+q.u:"")+".";
+    answered[S.id+"-"+i]=true; saveQuiz();
+  }else{
+    fb.classList.add("bad");
+    fb.textContent="Todavía no. "+q.hint;
+  }
+  updScore();
+}
+function updScore(){
+  if(!S.quiz||!S.quiz.length){document.getElementById("score").textContent="";return}
+  const n=S.quiz.filter((_,i)=>answered[S.id+"-"+i]).length;
+  const tot=Object.keys(answered).length;
+  document.getElementById("score").textContent=n+"/"+S.quiz.length+" en esta derrota · "+tot+" en total";
+}
+
+/* ============ simulador libre ============ */
+const PRESETS=[
+  ["Hélice","3cos(t)","3sen(t)","4t","0","2pi"],
+  ["Circunferencia","6cos(t)","6sen(t)","0","0","2pi"],
+  ["Elipse","4cos(t)","2sen(t)","0","0","2pi"],
+  ["Parábola de tiro","0","30t","49t-4.9t^2","0","10"],
+  ["Espiral que se abre","t*cos(t)","t*sen(t)","0","0","6pi"],
+  ["Cúbica alabeada","t","t^2","t^3","-1.4","1.4"],
+  ["Nudo","cos(2t)*(3+cos(3t))","sen(2t)*(3+cos(3t))","sen(3t)","0","2pi"]
+];
+document.getElementById("presets").innerHTML=PRESETS.map((p,i)=>
+  "<button type='button' data-p='"+i+"'>"+p[0]+"</button>").join("");
+document.getElementById("presets").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  const p=PRESETS[+b.dataset.p];
+  document.getElementById("fx").value=p[1]; document.getElementById("fy").value=p[2];
+  document.getElementById("fz").value=p[3]; document.getElementById("t0").value=p[4];
+  document.getElementById("t1").value=p[5]; buildLab();
+});
+function numDeriv(f,order,h){
+  return t=>{
+    const a=f(t-2*h),b=f(t-h),c=f(t),d=f(t+h),e=f(t+2*h);
+    return order===1 ? (-e+8*d-8*b+a)/(12*h) : (-e+16*d-30*c+16*b-a)/(12*h*h);
+  };
+}
+function buildLab(){
+  const errEl=document.getElementById("err");
+  errEl.className="err"; errEl.textContent=""; labErr=false;
+  const sx=document.getElementById("fx").value||"0";
+  const sy=document.getElementById("fy").value||"0";
+  const sz=document.getElementById("fz").value||"0";
+  try{
+    const fx=parse(sx), fy=parse(sy), fz=parse(sz);
+    const a=parseNum(document.getElementById("t0").value||"0");
+    const b=parseNum(document.getElementById("t1").value||"1");
+    if(!(b>a)) throw new Error("El t final debe ser mayor que el t inicial.");
+    const h=Math.max((b-a)*1e-4,1e-6);
+    const dx1=numDeriv(fx,1,h),dy1=numDeriv(fy,1,h),dz1=numDeriv(fz,1,h);
+    const dx2=numDeriv(fx,2,h),dy2=numDeriv(fy,2,h),dz2=numDeriv(fz,2,h);
+    LAB.t0=a; LAB.t1=b;
+    LAB.bodies=[{name:"Unidad",
+      r:t=>[fx(t),fy(t),fz(t)],
+      v:t=>[dx1(t),dy1(t),dz1(t)],
+      a:t=>[dx2(t),dy2(t),dz2(t)]}];
+    const probe=LAB.bodies[0].r((a+b)/2);
+    if(!fin(probe)) throw new Error("La función no da valores finitos en ese intervalo. Revise divisiones por cero o raíces de números negativos.");
+    LAB.eqn="<b>r</b>(t) = ("+sx+", &nbsp;"+sy+", &nbsp;"+sz+"),&nbsp;&nbsp;"+fmt(a,3)+" ≤ t ≤ "+fmt(b,3);
+    LAB.note="Derrota definida por usted. Las derivadas se calculan <strong>numéricamente</strong>, así que κ y ρ pueden tener un pequeño error de redondeo cerca de puntos donde la velocidad se anula.<span class='q'>Pruebe a cambiar un coeficiente y vuelva a trazar: verá de inmediato cómo cambian la rapidez, la curvatura y la distancia recorrida.</span>";
+    load(LAB,true);
+  }catch(e){
+    labErr=true; LAB.bodies=[];
+    LAB.eqn="<span style='color:var(--ink-faint)'>sin derrota trazada</span>";
+    document.getElementById("eqn").innerHTML=LAB.eqn;
+    errEl.className="err show"; errEl.textContent=e.message;
+    buildArc(); draw();
+  }
+}
+document.getElementById("plot").addEventListener("click",buildLab);
+["fx","fy","fz","t0","t1"].forEach(id=>
+  document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")buildLab()}));
+
+/* ============ navegación ============ */
+const tabsEl=document.getElementById("tabs"), chipsEl=document.getElementById("chips");
+tabsEl.innerHTML=CATS.map(c=>
+  "<button type='button' role='tab' data-k='"+c.k+"' aria-selected='"+(c.k==="app")+"'>"+c.label+"</button>").join("");
+tabsEl.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  cat=b.dataset.k;
+  [...tabsEl.children].forEach(x=>x.setAttribute("aria-selected",String(x===b)));
+  renderChips();
+  const items=CATS.find(c=>c.k===cat).items;
+  if(cat==="lab") buildLab(); else load(items[0]);
+});
+function renderChips(){
+  const items=CATS.find(c=>c.k===cat).items;
+  if(cat==="lab"){ chipsEl.innerHTML=""; chipsEl.hidden=true; return }
+  chipsEl.hidden=false;
+  chipsEl.innerHTML=items.map(s=>
+    "<button type='button' data-id='"+s.id+"' aria-pressed='"+(s.id===S.id)+"'>"+
+    (s.tag?"<span class='tag'>"+s.tag+"</span>":"")+s.name+"</button>").join("");
+}
+chipsEl.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  const items=CATS.find(c=>c.k===cat).items;
+  const s=items.find(x=>x.id===b.dataset.id); if(!s)return;
+  load(s);
+});
+
+/* ============ transporte ============ */
+const slide=document.getElementById("tslide"), btnPlay=document.getElementById("play");
+slide.addEventListener("input",()=>{ t=S.t0+(S.t1-S.t0)*(+slide.value/1000); draw() });
+btnPlay.addEventListener("click",()=>{
+  if(!S.bodies.length)return;
+  if(t>=S.t1-1e-9)t=S.t0;
+  playing=!playing; btnPlay.textContent=playing?"Pausa":"Reproducir";
+  last=performance.now(); if(playing)requestAnimationFrame(tick);
+});
+document.getElementById("reset").addEventListener("click",()=>{
+  t=S.t0; playing=false; btnPlay.textContent="Reproducir"; slide.value=0; draw();
+});
+let drag=false,px=0,py=0;
+cv.addEventListener("pointerdown",e=>{drag=true;px=e.clientX;py=e.clientY;cv.setPointerCapture(e.pointerId)});
+cv.addEventListener("pointermove",e=>{
+  if(!drag)return;
+  az-=(e.clientX-px)*0.009;
+  el=Math.max(-1.45,Math.min(1.45,el+(e.clientY-py)*0.008));
+  px=e.clientX;py=e.clientY;draw();
+});
+cv.addEventListener("pointerup",e=>{drag=false;try{cv.releasePointerCapture(e.pointerId)}catch(_){}});
+cv.addEventListener("dblclick",()=>{az=-0.62;el=0.42;draw()});
+function tick(now){
+  if(!playing)return;
+  const dt=Math.min(60,now-last)/1000; last=now;
+  const spd=+document.getElementById("spd").value/10;
+  t+=dt*(S.t1-S.t0)/8*spd;
+  if(t>=S.t1){t=S.t1;playing=false;btnPlay.textContent="Reproducir"}
+  slide.value=Math.round(1000*(t-S.t0)/(S.t1-S.t0));
+  draw(); if(playing)requestAnimationFrame(tick);
+}
+
+/* ============ carga ============ */
+function load(s,keepTab){
+  S=s; t=s.t0; playing=false; btnPlay.textContent="Reproducir"; slide.value=0;
+  Object.assign(L,BASE,s.layers||{}); syncLayers();
+  document.getElementById("scTitle").textContent=s.title;
+  document.getElementById("eqn").innerHTML=s.eqn;
+  document.getElementById("note").innerHTML=s.note;
+  document.getElementById("noteCard").hidden=!s.note;
+  document.getElementById("unitTag").textContent="longitudes en "+s.unit+" · t en "+s.tunit;
+  document.getElementById("labCard").hidden=(s.id!=="lab");
+  if(!keepTab)renderChips();
+  else chipsEl.hidden=true;
+  renderQuiz(); buildArc(); resize();
+}
+function resize(){
+  const box=cv.parentElement.getBoundingClientRect();
+  W=Math.max(300,Math.round(box.width));
+  H=Math.round(Math.max(340,Math.min(640,W*0.70)));
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  cv.width=W*DPR; cv.height=H*DPR; cv.style.height=H+"px";
+  cxm=W/2; cym=H/2+H*0.06;
+  if(S.bodies.length)fit();
+  draw();
+}
+window.addEventListener("resize",resize);
+if(window.matchMedia){
+  const mq=window.matchMedia("(prefers-color-scheme:dark)");
+  const h=()=>draw();
+  mq.addEventListener?mq.addEventListener("change",h):mq.addListener(h);
+}
+renderChips(); load(APPS[1]);
+})();
+</script>
+
+</body></html>
